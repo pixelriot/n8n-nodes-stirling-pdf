@@ -1,7 +1,9 @@
 import { NodeConnectionTypes, type INodeType, type INodeTypeDescription } from 'n8n-workflow';
 import { analysisDescription } from './resources/analysis';
 import { convertDescription } from './resources/convert';
+import { formsDescription } from './resources/forms';
 import { miscDescription } from './resources/misc';
+import { securityDescription } from './resources/security';
 
 export class StirlingPdf implements INodeType {
 	description: INodeTypeDescription = {
@@ -47,15 +49,25 @@ export class StirlingPdf implements INodeType {
 						value: 'convert',
 					},
 					{
+						name: 'Form',
+						value: 'forms',
+					},
+					{
 						name: 'Misc',
 						value: 'misc',
+					},
+					{
+						name: 'Security',
+						value: 'security',
 					},
 				],
 				default: 'convert',
 			},
 			...analysisDescription,
 			...convertDescription,
+			...formsDescription,
 			...miscDescription,
+			...securityDescription,
 		],
 	};
 }

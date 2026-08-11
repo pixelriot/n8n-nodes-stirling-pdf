@@ -1,6 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 import { inputDataField, outputDataField } from '../../shared/descriptions';
-import { returnBinary, sendPdfAsMultipart } from '../../shared/binary';
+import { sendStampAsMultipart } from '../../shared/binary';
+import { binaryRouting } from '../../shared/routing';
 
 const showOnlyForMisc = {
 	resource: ['misc'],
@@ -9,6 +10,21 @@ const showOnlyForMisc = {
 const showOnlyForCompress = {
 	resource: ['misc'],
 	operation: ['compress'],
+};
+
+const showOnlyForOcr = {
+	resource: ['misc'],
+	operation: ['ocr'],
+};
+
+const showOnlyForExtractImages = {
+	resource: ['misc'],
+	operation: ['extractImages'],
+};
+
+const showOnlyForStamp = {
+	resource: ['misc'],
+	operation: ['stamp'],
 };
 
 export const miscDescription: INodeProperties[] = [
@@ -20,23 +36,32 @@ export const miscDescription: INodeProperties[] = [
 		displayOptions: { show: showOnlyForMisc },
 		options: [
 			{
+				name: 'Add Stamp',
+				value: 'stamp',
+				action: 'Add a stamp to a PDF',
+				description: 'Stamp text or an image onto a PDF',
+				routing: binaryRouting('/api/v1/misc/add-stamp', sendStampAsMultipart),
+			},
+			{
 				name: 'Compress',
 				value: 'compress',
 				action: 'Compress a PDF',
 				description: 'Optimize and reduce the file size of a PDF',
-				routing: {
-					request: {
-						method: 'POST',
-						url: '/api/v1/misc/compress-pdf',
-						encoding: 'arraybuffer',
-					},
-					send: {
-						preSend: [sendPdfAsMultipart],
-					},
-					output: {
-						postReceive: [returnBinary],
-					},
-				},
+				routing: binaryRouting('/api/v1/misc/compress-pdf'),
+			},
+			{
+				name: 'Extract Images',
+				value: 'extractImages',
+				action: 'Extract images from a PDF',
+				description: 'Extract all embedded images from a PDF',
+				routing: binaryRouting('/api/v1/misc/extract-images'),
+			},
+			{
+				name: 'OCR',
+				value: 'ocr',
+				action: 'Run OCR on a PDF',
+				description: 'Add a searchable text layer to a PDF using OCR',
+				routing: binaryRouting('/api/v1/misc/ocr-pdf'),
 			},
 		],
 		default: 'compress',
@@ -113,5 +138,256 @@ export const miscDescription: INodeProperties[] = [
 				routing: { send: { type: 'body', property: 'normalize' } },
 			},
 		],
+	},
+
+	// --- OCR ---
+	{
+		displayName: 'Language',
+		name: 'languages',
+		type: 'string',
+		default: 'eng',
+		displayOptions: { show: showOnlyForOcr },
+		description: 'Tesseract language code to use for OCR, e.g. "eng", "deu", "fra"',
+		routing: { send: { type: 'body', property: 'languages' } },
+	},
+	{
+		displayName: 'OCR Type',
+		name: 'ocrType',
+		type: 'options',
+		default: 'skip-text',
+		displayOptions: { show: showOnlyForOcr },
+		description: 'How to handle pages that already contain text',
+		options: [
+			{ name: 'Force OCR', value: 'force-ocr', description: 'Re-OCR every page, replacing existing text' },
+			{ name: 'Normal', value: 'Normal', description: 'OCR the whole document' },
+			{ name: 'Skip Text', value: 'skip-text', description: 'Only OCR pages without existing text' },
+		],
+		routing: { send: { type: 'body', property: 'ocrType' } },
+	},
+	{
+		displayName: 'Additional Fields',
+		name: 'ocrAdditionalFields',
+		type: 'collection',
+		placeholder: 'Add Field',
+		default: {},
+		displayOptions: { show: showOnlyForOcr },
+		options: [
+			{
+				displayName: 'Clean',
+				name: 'clean',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to clean the input page before OCR. Defaults to false.',
+				routing: { send: { type: 'body', property: 'clean' } },
+			},
+			{
+				displayName: 'Clean Final',
+				name: 'cleanFinal',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to clean the final output. Defaults to false.',
+				routing: { send: { type: 'body', property: 'cleanFinal' } },
+			},
+			{
+				displayName: 'Deskew',
+				name: 'deskew',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to straighten skewed pages before OCR. Defaults to false.',
+				routing: { send: { type: 'body', property: 'deskew' } },
+			},
+			{
+				displayName: 'OCR Render Type',
+				name: 'ocrRenderType',
+				type: 'options',
+				default: 'hocr',
+				description: 'The OCR text layer rendering type',
+				options: [
+					{ name: 'Hocr', value: 'hocr' },
+					{ name: 'Sandwich', value: 'sandwich' },
+				],
+				routing: { send: { type: 'body', property: 'ocrRenderType' } },
+			},
+			{
+				displayName: 'Remove Images After',
+				name: 'removeImagesAfter',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to remove images from the output PDF after OCR. Defaults to false.',
+				routing: { send: { type: 'body', property: 'removeImagesAfter' } },
+			},
+			{
+				displayName: 'Sidecar',
+				name: 'sidecar',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to also return the extracted text in a sidecar file. Defaults to false.',
+				routing: { send: { type: 'body', property: 'sidecar' } },
+			},
+		],
+	},
+
+	// --- Extract Images ---
+	{
+		displayName: 'Image Format',
+		name: 'format',
+		type: 'options',
+		default: 'png',
+		displayOptions: { show: showOnlyForExtractImages },
+		description: 'Format of the extracted images',
+		options: [
+			{ name: 'GIF', value: 'gif' },
+			{ name: 'JPEG', value: 'jpeg' },
+			{ name: 'PNG', value: 'png' },
+		],
+		routing: { send: { type: 'body', property: 'format' } },
+	},
+
+	// --- Add Stamp ---
+	{
+		displayName: 'Stamp Type',
+		name: 'stampType',
+		type: 'options',
+		default: 'text',
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Whether to stamp text or an image',
+		options: [
+			{ name: 'Text', value: 'text' },
+			{ name: 'Image', value: 'image' },
+		],
+		routing: { send: { type: 'body', property: 'stampType' } },
+	},
+	{
+		displayName: 'Stamp Text',
+		name: 'stampText',
+		type: 'string',
+		default: 'Stirling Software',
+		displayOptions: { show: { ...showOnlyForStamp, stampType: ['text'] } },
+		description: 'The text to stamp onto the PDF',
+		routing: { send: { type: 'body', property: 'stampText' } },
+	},
+	{
+		displayName: 'Stamp Image Field Name',
+		name: 'stampImageFieldName',
+		type: 'string',
+		default: 'data',
+		displayOptions: { show: { ...showOnlyForStamp, stampType: ['image'] } },
+		description: 'Name of the input binary field containing the stamp image',
+	},
+	{
+		displayName: 'Page Numbers',
+		name: 'pageNumbers',
+		type: 'string',
+		default: 'all',
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Pages to stamp, e.g. "all", "1,3", or "2-5"',
+		routing: { send: { type: 'body', property: 'pageNumbers' } },
+	},
+	{
+		displayName: 'Position',
+		name: 'position',
+		type: 'options',
+		default: 8,
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Placement of the stamp on the page (numeric keypad layout: 1 = bottom-left, 9 = top-right)',
+		options: [
+			{ name: '1 - Bottom Left', value: 1 },
+			{ name: '2 - Bottom Center', value: 2 },
+			{ name: '3 - Bottom Right', value: 3 },
+			{ name: '4 - Middle Left', value: 4 },
+			{ name: '5 - Middle Center', value: 5 },
+			{ name: '6 - Middle Right', value: 6 },
+			{ name: '7 - Top Left', value: 7 },
+			{ name: '8 - Top Center', value: 8 },
+			{ name: '9 - Top Right', value: 9 },
+		],
+		routing: { send: { type: 'body', property: 'position' } },
+	},
+	{
+		displayName: 'Font Size',
+		name: 'fontSize',
+		type: 'number',
+		default: 40,
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Font size of the stamp text (also scales an image stamp)',
+		routing: { send: { type: 'body', property: 'fontSize' } },
+	},
+	{
+		displayName: 'Rotation',
+		name: 'rotation',
+		type: 'number',
+		default: 0,
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Rotation of the stamp in degrees',
+		routing: { send: { type: 'body', property: 'rotation' } },
+	},
+	{
+		displayName: 'Opacity',
+		name: 'opacity',
+		type: 'number',
+		default: 0.5,
+		typeOptions: { minValue: 0, maxValue: 1, numberPrecision: 2 },
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Opacity of the stamp, from 0 (transparent) to 1 (opaque)',
+		routing: { send: { type: 'body', property: 'opacity' } },
+	},
+	{
+		displayName: 'Alphabet',
+		name: 'alphabet',
+		type: 'options',
+		default: 'roman',
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Alphabet of the stamp text',
+		options: [
+			{ name: 'Arabic', value: 'arabic' },
+			{ name: 'Chinese', value: 'chinese' },
+			{ name: 'Japanese', value: 'japanese' },
+			{ name: 'Korean', value: 'korean' },
+			{ name: 'Roman', value: 'roman' },
+			{ name: 'Thai', value: 'thai' },
+		],
+		routing: { send: { type: 'body', property: 'alphabet' } },
+	},
+	{
+		displayName: 'Custom Color',
+		name: 'customColor',
+		type: 'color',
+		default: '#d3d3d3',
+		displayOptions: { show: { ...showOnlyForStamp, stampType: ['text'] } },
+		description: 'Color of the stamp text',
+		routing: { send: { type: 'body', property: 'customColor' } },
+	},
+	{
+		displayName: 'Custom Margin',
+		name: 'customMargin',
+		type: 'options',
+		default: 'medium',
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Margin size between the stamp and the page edge',
+		options: [
+			{ name: 'Small', value: 'small' },
+			{ name: 'Medium', value: 'medium' },
+			{ name: 'Large', value: 'large' },
+			{ name: 'X-Large', value: 'x-large' },
+		],
+		routing: { send: { type: 'body', property: 'customMargin' } },
+	},
+	{
+		displayName: 'Override X',
+		name: 'overrideX',
+		type: 'number',
+		default: -1,
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Absolute X coordinate for the stamp (-1 to use Position instead)',
+		routing: { send: { type: 'body', property: 'overrideX' } },
+	},
+	{
+		displayName: 'Override Y',
+		name: 'overrideY',
+		type: 'number',
+		default: -1,
+		displayOptions: { show: showOnlyForStamp },
+		description: 'Absolute Y coordinate for the stamp (-1 to use Position instead)',
+		routing: { send: { type: 'body', property: 'overrideY' } },
 	},
 ];

@@ -10,13 +10,26 @@ Status: **scaffolded (declarative style), lint + build + cloud-support green.** 
 
 ### Implemented so far
 - **Credential** `StirlingPdfApi` — Base URL + API key (`X-API-KEY` header). Test hits the public `GET /api/v1/info/status`.
-- **Resources/operations:** Convert (File, HTML, Markdown, Image, eBook, EML → PDF), Analysis (Get Basic Info), Misc (Compress). Each new op = a file under `nodes/StirlingPdf/resources/<resource>/` spread into the node's `properties`.
-  - Curl-verified against the live instance: File, HTML, Markdown, Image, EML → valid PDF. eBook accepts the request (needs a real EPUB to fully confirm). **URL→PDF was deliberately dropped** — the instance 500s with "No current ServletRequestAttributes" for every URL (a Stirling async-job bug); re-add once confirmed working somewhere. The no-file `sendFieldsAsMultipart` helper remains in `shared/binary.ts` for when it (or other no-file endpoints) is wired.
-  - **Not yet run inside n8n (Gate 4):** the `preSend`/`postReceive` code path is unproven at runtime — curl validates the API, not the node's TS execution.
-- **Shared binary pattern** (`nodes/StirlingPdf/shared/binary.ts`) — every op reuses `sendPdfAsMultipart` (preSend: builds a `FormData`, attaches the item's binary as `fileInput`, moves `routing.send` body params to form fields) and, for binary responses, `returnBinary` (postReceive) paired with `routing.request.encoding: 'arraybuffer'`. This is the template for the remaining ~110 endpoints.
+- **Resources/operations** (each op = an entry in `nodes/StirlingPdf/resources/<resource>/index.ts`, spread into the node's `properties`):
+  - **Convert** — File, HTML, Markdown, Image, eBook, EML → PDF; and PDF → CSV, HTML, Image, Markdown, PDF/A, Text, Word, XML.
+  - **Analysis** (JSON out) — Get Basic Info, Get Form Fields, Get Security Info.
+  - **Forms** (upload under the `file` field, not `fileInput`) — Fill (binary out), Get Fields (JSON), Get Fields With Coordinates (JSON).
+  - **Misc** — Compress, Extract Images, OCR, Add Stamp.
+  - **Security** — Add Password, Remove Password, Add Watermark, Auto Redact, Redact, Sanitize, Get PDF Info (JSON), Timestamp, Sign With Certificate, Remove Certificate Signature, Validate Signature (JSON).
+  - **HTML and Markdown accept either a binary file or a raw text string** via an `Input Type` selector (`sendHtmlOrBinary` / `sendMarkdownOrBinary` wrap the string in a Blob as the `fileInput` part).
+- **Shared helpers** in `shared/`:
+  - `binary.ts` — preSend builders (`sendPdfAsMultipart` for `fileInput`; `sendFormFileAsMultipart` for the `file` field; `sendStampAsMultipart` / `sendWatermarkAsMultipart` / `sendCertSignAsMultipart` / `sendValidateSignatureAsMultipart` add secondary files from `*FieldName` params) and `returnBinary` (postReceive).
+  - `routing.ts` — `binaryRouting(url, preSend?)` (encoding + returnBinary) and `jsonRouting(url, preSend?)` (no encoding → n8n parses JSON). Use these for every new op.
+
+### ⚠️ Mandatory-options gotcha (verified against the live instance)
+Stirling's OpenAPI marks many fields with a `default`, but the **controllers do not apply those defaults** — a field left unsent arrives `null` and either fails validation (`fontSize: must be at least 1.0`) or crashes (`String.hashCode() ... null` for `alphabet`/`customColor`). Consequence: **any field the server needs must be an always-sent top-level param, never buried in an optional `collection`** (collection fields are only sent when the user expands them). This bit Add Watermark (needed `alphabet` + `customColor` + `fontSize`) and applies to Add Stamp. When adding ops, promote every server-required field to a direct param with a sensible default; keep only genuinely optional fields in "Additional Fields". A minimal-request probe (send only the node's defaults, expect 200) is the way to catch these — see the scratchpad test used during development.
+
+### Instance-gated endpoints (correct wiring, fail only on the plat4mation demo)
+These are implemented correctly but return errors on the demo host due to its configuration, not the node — expect them to work on a fully-featured instance: `add-stamp`, `remove-cert-sign`, `validate-signature` return **403 "endpoint is disabled"**; `timestamp` 500s (instance can't reach the TSA); `ocr` 500s (no Tesseract language pack). **URL→PDF was dropped entirely** — it 500s with "No current ServletRequestAttributes" for every URL (a Stirling async-job bug); the no-file `sendFieldsAsMultipart` helper remains for when it is re-added.
 
 ### Verified runtime facts (tested against the plat4mation demo instance)
-- `fileInput` is the multipart field; `File→PDF` and `HTML→PDF` (with `zoom`) return valid `%PDF` bytes.
+- Runs **inside n8n** (Gate 4 confirmed by the user): File→PDF converts docx→pdf; the output binary gets a fileName (input base name + response extension) so n8n shows a Download button and downstream nodes can reference it by the *Output Data Field Name* (default `data`).
+- `fileInput` is the multipart field for most ops; **Forms use `file`**. Analysis/info/forms-inspection endpoints return JSON (use `jsonRouting`, no `encoding`).
 - The demo host sits behind a WAF that **403s any User-Agent containing `curl`** (this also blocks `curl` downloads of the spec — use `-A "Mozilla/5.0"`). n8n/axios UA passes fine, so the node needs **no** custom User-Agent.
 - The API validates the key (401 on bad key) on protected endpoints, but every protected GET either needs path params or is "disabled" (403) — hence the credential test uses the public `/info/status` for reachability only.
 - In declarative `preSend`/`postReceive` the context is `IExecuteSingleFunctions`: binary helpers are **single-arg** (`assertBinaryData(field)`, `getBinaryDataBuffer(field)`) — no itemIndex. `usableAsTool` must be `true`/object/omitted (the type rejects `false`).
