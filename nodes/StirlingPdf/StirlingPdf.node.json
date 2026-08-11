@@ -1,0 +1,22 @@
+{
+	"node": "n8n-nodes-stirling-pdf",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Utility"],
+	"subcategories": {
+		"Utility": ["Files"]
+	},
+	"alias": ["PDF", "Stirling", "compress", "convert", "OCR", "merge", "split", "watermark", "redact"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://docs.stirlingpdf.com/API"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://docs.stirlingpdf.com/"
+			}
+		]
+	}
+}
