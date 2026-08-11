@@ -1,73 +1,123 @@
 # n8n-nodes-stirling-pdf
 
-This is an n8n community node. It lets you use GitHub Issues in your n8n workflows.
+An [n8n](https://n8n.io/) community node for [Stirling PDF](https://www.stirlingpdf.com/) — a powerful, self‑hostable toolkit for manipulating PDFs. This node lets your workflows convert, compress, OCR, watermark, redact, sign, inspect and fill PDFs by calling your own Stirling PDF instance.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
 
-[Installation](#installation)
-[Operations](#operations)
-[Credentials](#credentials)
-[Compatibility](#compatibility)
-[Usage](#usage)
-[Resources](#resources)
+- [Installation](#installation)
+- [Credentials](#credentials)
+- [Usage](#usage)
+- [Supported operations](#supported-operations)
+- [Notes & limitations](#notes--limitations)
+- [Compatibility](#compatibility)
+- [Resources](#resources)
 
 ## Installation
 
-Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation.
+### From the n8n UI (self‑hosted)
 
-## Operations
+1. In n8n, go to **Settings → Community Nodes**.
+2. Select **Install**.
+3. Enter `n8n-nodes-stirling-pdf` and confirm.
 
-- Issues
-    - Get an issue
-    - Get many issues in a repository
-    - Create a new issue
-- Issue Comments
-    - Get many issue comments
+See the n8n [community node installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) for details.
+
+### Manually
+
+```bash
+npm install n8n-nodes-stirling-pdf
+```
 
 ## Credentials
 
-You can use either access token or OAuth2 to use this node.
+This node talks to **your** Stirling PDF instance, so you need two things:
 
-### Access token
+| Field | Description |
+| --- | --- |
+| **Base URL** | The root URL of your Stirling PDF instance, without a trailing slash — e.g. `https://stirling.example.com`. |
+| **API Key** | Sent as the `X-API-KEY` header on every request. |
 
-1. Open your GitHub profile [Settings](https://github.com/settings/profile).
-2. In the left navigation, select [Developer settings](https://github.com/settings/apps).
-3. In the left navigation, under Personal access tokens, select Tokens (classic).
-4. Select Generate new token > Generate new token (classic).
-5. Enter a descriptive name for your token in the Note field, like n8n integration.
-6. Select the Expiration you'd like for the token, or select No expiration.
-7. Select Scopes for your token. For most of the n8n GitHub nodes, add the `repo` scope.
-    - A token without assigned scopes can only access public information.
-8. Select Generate token.
-9. Copy the token.
+To obtain an API key, enable authentication on your Stirling PDF instance and copy the key from your account settings (**Account settings → API key**). See the [Stirling PDF API documentation](https://docs.stirlingpdf.com/API) for how to enable and manage keys.
 
-Refer to [Creating a personal access token (classic)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic) for more information. Refer to Scopes for OAuth apps for more information on GitHub scopes.
+The credential test calls the public `GET /api/v1/info/status` endpoint to confirm the Base URL points at a reachable Stirling instance.
 
-![Generated Access token in GitHub](https://docs.github.com/assets/cb-17251/mw-1440/images/help/settings/personal-access-tokens.webp)
+## Usage
 
-### OAuth2
+Every operation reads a file from an **input binary property** and (for most operations) writes the result to an **output binary property**:
 
-If you're self-hosting n8n, create a new GitHub [OAuth app](https://docs.github.com/en/apps/oauth-apps):
+- **Input Data Field Name** — the name of the incoming binary property that holds the file to process (default `data`).
+- **Output Data Field Name** — the name of the binary property to write the result to (default `data`).
 
-1. Open your GitHub profile [Settings](https://github.com/settings/profile).
-2. In the left navigation, select [Developer settings](https://github.com/settings/apps).
-3. In the left navigation, select OAuth apps.
-4. Select New OAuth App.
-    - If you haven't created an app before, you may see Register a new application instead. Select it.
-5. Enter an Application name, like n8n integration.
-6. Enter the Homepage URL for your app's website.
-7. If you'd like, add the optional Application description, which GitHub displays to end-users.
-8. From n8n, copy the OAuth Redirect URL and paste it into the GitHub Authorization callback URL.
-9. Select Register application.
-10. Copy the Client ID and Client Secret this generates and add them to your n8n credential.
+The result is a proper binary item with a filename, so it shows a **Download** button in the editor and can be passed straight to downstream nodes (e.g. *Write Files From Disk*, *Send Email* attachment, *Google Drive*, or another Stirling PDF step). Inspection operations (Analysis, Get Fields, Get Info, Validate Signature) return **JSON** instead of a binary file.
 
-Refer to the [GitHub Authorizing OAuth apps documentation](https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/authorizing-oauth-apps) for more information on the authorization process.
+**HTML → PDF** and **Markdown → PDF** additionally accept a raw **text string** instead of a file — switch the *Input Type* to *Text* and paste the markup directly.
+
+## Supported operations
+
+### Convert
+- File to PDF (via LibreOffice)
+- HTML to PDF *(binary file or text string)*
+- Markdown to PDF *(binary file or text string)*
+- Image to PDF
+- eBook to PDF
+- EML to PDF
+- PDF to CSV
+- PDF to HTML
+- PDF to Image
+- PDF to Markdown
+- PDF to PDF/A
+- PDF to Text
+- PDF to Word
+- PDF to XML
+
+### Security
+- Add Password
+- Remove Password
+- Add Watermark *(text or image)*
+- Auto Redact
+- Redact
+- Sanitize
+- Get PDF Info *(JSON)*
+- Timestamp
+- Sign With Certificate
+- Remove Certificate Signature
+- Validate Signature *(JSON)*
+
+### Forms
+- Fill
+- Get Fields *(JSON)*
+- Get Fields With Coordinates *(JSON)*
+
+### Analysis *(JSON)*
+- Get Basic Info
+- Get Form Fields
+- Get Security Info
+
+### Misc
+- Compress
+- Extract Images
+- OCR
+- Add Stamp *(text or image)*
+
+## Notes & limitations
+
+- **This node targets the Stirling PDF "Processing" API** (`/api/v1/...`). It is built from the OpenAPI spec bundled in [`docs/stirling-pdf-api.json`](docs/stirling-pdf-api.json) (Stirling PDF v2.14.2).
+- **Some features are instance‑dependent.** Endpoints such as OCR (needs Tesseract language packs), Timestamp (needs outbound access to a Time Stamp Authority), and certificate signing/validation may be **disabled or unavailable** depending on how your Stirling PDF instance is configured. In that case the API returns an error even though the node is calling it correctly.
+- **URL → PDF is not included** because the upstream endpoint is currently unreliable in API mode.
 
 ## Compatibility
 
-Compatible with n8n@1.60.0 or later
+Requires **n8n 1.60.0** or later.
 
 ## Resources
 
-* [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
-* [GitHub API docs](https://docs.github.com/en/rest/issues)
+- [Stirling PDF website](https://www.stirlingpdf.com/)
+- [Stirling PDF documentation](https://docs.stirlingpdf.com/)
+- [Stirling PDF API documentation](https://docs.stirlingpdf.com/API)
+- [Stirling PDF on GitHub](https://github.com/Stirling-Tools/Stirling-PDF)
+- [Bundled OpenAPI spec](docs/stirling-pdf-api.json)
+- [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
+
+## License
+
+[MIT](LICENSE)
