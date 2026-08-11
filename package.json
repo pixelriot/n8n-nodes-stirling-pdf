@@ -1,6 +1,6 @@
 {
     "name": "n8n-nodes-stirling-pdf",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "n8n community node for the Stirling PDF processing API",
     "license": "MIT",
     "homepage": "https://github.com/EnoxCode/n8n-nodes-stirling-pdf#readme",
@@ -24,15 +24,15 @@
     "publishConfig": {
         "access": "public"
     },
-   "scripts": {
-		"build": "n8n-node build",
-		"build:watch": "tsc --watch",
-		"dev": "n8n-node dev",
-		"lint": "n8n-node lint",
+    "scripts": {
+        "build": "n8n-node build",
+        "build:watch": "tsc --watch",
+        "dev": "n8n-node dev",
+        "lint": "n8n-node lint",
         "lint:fix": "n8n-node lint --fix",
-		"release": "n8n-node release",
-		"prepublishOnly": "n8n-node prerelease"
-	},
+        "release": "n8n-node release",
+        "prepublishOnly": "n8n-node prerelease"
+    },
     "files": [
         "dist"
     ],
