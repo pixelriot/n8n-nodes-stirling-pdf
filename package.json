@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "description": "n8n community node for the Stirling PDF processing API",
     "license": "MIT",
-    "homepage": "https://github.com/lraeskin/n8n-nodes-stirling-pdf",
+    "homepage": "https://github.com/EnoxCode/n8n-nodes-stirling-pdf#readme",
     "keywords": [
         "n8n-community-node-package",
         "n8n",
@@ -16,7 +16,13 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/lraeskin/n8n-nodes-stirling-pdf.git"
+        "url": "git+https://github.com/EnoxCode/n8n-nodes-stirling-pdf.git"
+    },
+    "bugs": {
+        "url": "https://github.com/EnoxCode/n8n-nodes-stirling-pdf/issues"
+    },
+    "publishConfig": {
+        "access": "public"
     },
    "scripts": {
 		"build": "n8n-node build",
