@@ -2,6 +2,7 @@ import { NodeConnectionTypes, type INodeType, type INodeTypeDescription } from '
 import { analysisDescription } from './resources/analysis';
 import { convertDescription } from './resources/convert';
 import { formsDescription } from './resources/forms';
+import { generalDescription } from './resources/general';
 import { miscDescription } from './resources/misc';
 import { securityDescription } from './resources/security';
 
@@ -53,6 +54,10 @@ export class StirlingPdf implements INodeType {
 						value: 'forms',
 					},
 					{
+						name: 'General',
+						value: 'general',
+					},
+					{
 						name: 'Misc',
 						value: 'misc',
 					},
@@ -66,6 +71,7 @@ export class StirlingPdf implements INodeType {
 			...analysisDescription,
 			...convertDescription,
 			...formsDescription,
+			...generalDescription,
 			...miscDescription,
 			...securityDescription,
 		],

@@ -14,11 +14,13 @@ Status: **scaffolded (declarative style), lint + build + cloud-support green.** 
   - **Convert** — File, HTML, Markdown, Image, eBook, EML → PDF; and PDF → CSV, HTML, Image, Markdown, PDF/A, Text, Word, XML.
   - **Analysis** (JSON out) — Get Basic Info, Get Form Fields, Get Security Info.
   - **Forms** (upload under the `file` field, not `fileInput`) — Fill (binary out), Get Fields (JSON), Get Fields With Coordinates (JSON).
+  - **General** — Merge (several files → one PDF; `inputDataFieldNames` is a comma-separated list sent as repeated `fileInput` parts, in order), Split Pages (ZIP, or a PDF when there is one part). `sortType`, `removeCertSign` and `pageNumbers` are server-required and always sent.
   - **Misc** — Compress, Extract Images, OCR, Add Stamp.
   - **Security** — Add Password, Remove Password, Add Watermark, Auto Redact, Redact, Sanitize, Get PDF Info (JSON), Timestamp, Sign With Certificate, Remove Certificate Signature, Validate Signature (JSON).
   - **HTML and Markdown accept either a binary file or a raw text string** via an `Input Type` selector (`sendHtmlOrBinary` / `sendMarkdownOrBinary` wrap the string in a Blob as the `fileInput` part).
 - **Shared helpers** in `shared/`:
-  - `binary.ts` — preSend builders (`sendPdfAsMultipart` for `fileInput`; `sendFormFileAsMultipart` for the `file` field; `sendStampAsMultipart` / `sendWatermarkAsMultipart` / `sendCertSignAsMultipart` / `sendValidateSignatureAsMultipart` add secondary files from `*FieldName` params) and `returnBinary` (postReceive).
+  - `binary.ts` — preSend builders (`sendPdfAsMultipart` for `fileInput`; `sendFilesAsMultipart` for several `fileInput` parts from `inputDataFieldNames`; `sendFormFileAsMultipart` for the `file` field; `sendStampAsMultipart` / `sendWatermarkAsMultipart` / `sendCertSignAsMultipart` / `sendValidateSignatureAsMultipart` add secondary files from `*FieldName` params) and `returnBinary` (postReceive).
+  - `returnBinary` takes the extension from the `Content-Disposition` file name before guessing it from the content type, and replaces a generic `application/octet-stream` with the type of that extension. Stirling sends ZIPs as octet-stream; guessing from the type alone produced `.octet-stream` files that n8n's Compression node refuses to unpack.
   - `routing.ts` — `binaryRouting(url, preSend?)` (encoding + returnBinary) and `jsonRouting(url, preSend?)` (no encoding → n8n parses JSON). Use these for every new op.
 
 ### ⚠️ Mandatory-options gotcha (verified against the live instance)

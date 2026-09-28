@@ -52,6 +52,10 @@ The result is a proper binary item with a filename, so it shows a **Download** b
 
 **HTML → PDF** and **Markdown → PDF** additionally accept a raw **text string** instead of a file — switch the *Input Type* to *Text* and paste the markup directly.
 
+**Merge** takes several files from the same item: list their binary properties in *Input Data Field Names*, separated by commas and in merge order (e.g. `data, data_1`). To merge files that arrive as separate items, combine them into one item first (e.g. with the *Aggregate* node and *Include Binaries*).
+
+The output file name is the input file's base name plus the extension of the file the server returned. The extension is taken from the response's `Content-Disposition` file name when there is one, so ZIP results (Split Pages, PDF to Image with one image per page) come out as `.zip` with type `application/zip` even though Stirling sends them as `application/octet-stream`.
+
 ## Supported operations
 
 ### Convert
@@ -87,6 +91,10 @@ The result is a proper binary item with a filename, so it shows a **Download** b
 - Fill
 - Get Fields *(JSON)*
 - Get Fields With Coordinates *(JSON)*
+
+### General
+- Merge *(several files into one PDF)*
+- Split Pages *(ZIP of the parts, or a PDF when there is only one)*
 
 ### Analysis *(JSON)*
 - Get Basic Info
