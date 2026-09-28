@@ -310,6 +310,69 @@ function extensionOf(fileName: string | undefined): string | undefined {
 	return match ? match[1].toLowerCase() : undefined;
 }
 
+/**
+ * The type of a file as told by its first bytes, for the formats Stirling
+ * returns. Only consulted when neither the content type nor the file name in
+ * `Content-Disposition` says what came back.
+ */
+function mimeTypeFromContent(body: unknown): string | undefined {
+	const bytes =
+		body instanceof Uint8Array ? body : body instanceof ArrayBuffer ? new Uint8Array(body) : null;
+	if (!bytes) return undefined;
+	const startsWith = (...signature: number[]) =>
+		bytes.length >= signature.length && signature.every((byte, i) => bytes[i] === byte);
+	const at = (offset: number, ...signature: number[]) =>
+		bytes.length >= offset + signature.length &&
+		signature.every((byte, i) => bytes[offset + i] === byte);
+
+	// PK\x03\x04 (local file), PK\x05\x06 (empty archive), PK\x07\x08 (spanned)
+	if (startsWith(0x50, 0x4b) && (at(2, 0x03, 0x04) || at(2, 0x05, 0x06) || at(2, 0x07, 0x08)))
+		return 'application/zip';
+	if (startsWith(0x25, 0x50, 0x44, 0x46, 0x2d)) return 'application/pdf'; // %PDF-
+	if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+	if (startsWith(0xff, 0xd8, 0xff)) return 'image/jpeg';
+	if (startsWith(0x47, 0x49, 0x46, 0x38)) return 'image/gif'; // GIF8
+	if (startsWith(0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp'; // RIFF….WEBP
+	return undefined;
+}
+
+/**
+ * Content type and extension of a binary response.
+ *
+ * A concrete content type from the server is kept. A generic one (or none) is
+ * resolved from the file name in `Content-Disposition`, then from the file's
+ * first bytes; only when both say nothing does the old behaviour remain.
+ *
+ * A file name wins over the bytes even when its extension is not in the table:
+ * DOCX, XLSX and ODT files are ZIP archives inside, and sniffing would rename
+ * `report.docx` to `.zip`.
+ */
+function resolveFileType(
+	headers: IN8nHttpFullResponse['headers'],
+	body: unknown,
+): { mimeType: string; extension: string } {
+	const declared = ((headers?.['content-type'] as string) ?? '').split(';')[0].trim().toLowerCase();
+	const headerExtension = extensionOf(
+		fileNameFromContentDisposition(headers?.['content-disposition']),
+	);
+
+	if (declared && !GENERIC_MIME_TYPES.has(declared)) {
+		return { mimeType: declared, extension: headerExtension ?? extensionForMimeType(declared) };
+	}
+	if (headerExtension) {
+		return {
+			mimeType: MIME_TYPE_BY_EXTENSION[headerExtension] ?? (declared || 'application/octet-stream'),
+			extension: headerExtension,
+		};
+	}
+	const sniffed = mimeTypeFromContent(body);
+	if (sniffed) {
+		return { mimeType: sniffed, extension: extensionForMimeType(sniffed) };
+	}
+	const fallback = declared || 'application/pdf';
+	return { mimeType: fallback, extension: extensionForMimeType(fallback) };
+}
+
 /** The binary property of the (first) input file, for naming the output. */
 function primaryInputField(ctx: IExecuteSingleFunctions): string {
 	const single = ctx.getNodeParameter('inputDataFieldName', '') as string;
@@ -325,11 +388,10 @@ function primaryInputField(ctx: IExecuteSingleFunctions): string {
  * plus the response's extension) so n8n shows it with a Download button and later
  * nodes can reference it.
  *
- * The extension comes from the file name in `Content-Disposition` when the server
- * sends one, and only otherwise from the content type: Stirling returns ZIPs as
- * `application/octet-stream`, which would make them `.octet-stream` files that the
- * Compression node refuses to unpack. A generic content type is then replaced by
- * the one that belongs to that extension.
+ * Stirling returns ZIPs as `application/octet-stream`; named after that type they
+ * became `.octet-stream` files that the Compression node refuses to unpack. So a
+ * generic content type is resolved from the `Content-Disposition` file name, then
+ * from the file's first bytes (see `resolveFileType`).
  */
 export async function returnBinary(
 	this: IExecuteSingleFunctions,
@@ -337,17 +399,7 @@ export async function returnBinary(
 	response: IN8nHttpFullResponse,
 ): Promise<INodeExecutionData[]> {
 	const outputField = this.getNodeParameter('outputDataFieldName', 'data') as string;
-	const contentType =
-		((response.headers?.['content-type'] as string) ?? '').split(';')[0].trim().toLowerCase() ||
-		'application/pdf';
-	const headerExtension = extensionOf(
-		fileNameFromContentDisposition(response.headers?.['content-disposition']),
-	);
-	const extension = headerExtension ?? extensionForMimeType(contentType);
-	const mimeType =
-		GENERIC_MIME_TYPES.has(contentType) && MIME_TYPE_BY_EXTENSION[extension]
-			? MIME_TYPE_BY_EXTENSION[extension]
-			: contentType;
+	const { mimeType, extension } = resolveFileType(response.headers, response.body);
 
 	// Base the output name on the input file when there is one (binary mode);
 	// fall back to "output" for text-input operations (which have no input binary).
